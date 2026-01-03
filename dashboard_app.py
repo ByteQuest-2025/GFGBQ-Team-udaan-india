@@ -23,13 +23,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from hospital_data_pipeline import example_build_master_from_default_files
-from hospital_decision_engine import AlertEngineConfig, generate_alert
-from hospital_feature_engineering import FeatureConfig
-from hospital_forecasting import ForecastingConfig, run_admissions_forecasting_pipeline
-from hospital_icu_demand import ICUDemandConfig, run_icu_demand_pipeline
-from hospital_staff_risk import StaffRiskConfig, run_staff_risk_pipeline
-from main import build_shared_feature_config, infer_context_flags
+from pipeline import run_pipeline
 
 
 st.set_page_config(
@@ -43,110 +37,43 @@ def run_pipelines(
     test_horizon: int,
     forecast_horizon: int,
 ) -> Dict[str, Any]:
-    """Execute core pipelines and return a bundle of outputs.
+    """Execute pipelines via the centralized pipeline controller.
 
-    This function mirrors the logic in main.py but returns artefacts for
-    use in interactive visualization instead of printing to stdout.
+    The controller returns a stable summary + nested details. For this
+    dashboard we also run admissions forecasting to retain the existing
+    evaluation chart.
     """
 
-    master_df, dataset_summaries = example_build_master_from_default_files(base_dir)
-    feature_cfg: FeatureConfig = build_shared_feature_config()
-
-    # Admissions forecasting (used mainly for metrics in this dashboard)
-    adm_cfg = ForecastingConfig(
-        base_dir=base_dir,
-        test_horizon_days=test_horizon,
-        forecast_horizon_days=forecast_horizon,
-        feature_config=feature_cfg,
+    result = run_pipeline(
+        {
+            "base_dir": base_dir,
+            "test_horizon_days": int(test_horizon),
+            "forecast_horizon_days": int(forecast_horizon),
+        }
     )
-    adm_results = run_admissions_forecasting_pipeline(adm_cfg)
 
-    # Approximate next-day admissions using last observed value; in a
-    # production deployment you can plug in a dedicated admissions
-    # forecast at this point.
-    admissions_col = feature_cfg.admissions_col
-    if admissions_col in master_df.columns:
-        if feature_cfg.date_col in master_df.columns:
-            master_sorted = master_df.sort_values(feature_cfg.date_col)
-        else:
-            master_sorted = master_df
-        next_day_admissions = float(master_sorted[admissions_col].iloc[-1])
-    else:
-        next_day_admissions = float("nan")
+    details = result.get("details", {}) if isinstance(result, dict) else {}
+    decision_engine_alert = details.get("decision_engine_alert", {})
 
-    # ICU demand forecast
-    icu_cfg = ICUDemandConfig(
-        base_dir=base_dir,
-        test_horizon_days=test_horizon,
-        forecast_horizon_days=forecast_horizon,
-        feature_config=feature_cfg,
-        rf_params=None,
-    )
-    icu_results = run_icu_demand_pipeline(icu_cfg)
-    next_day_icu_beds = float(icu_results["next_day_icu_beds"])
-    next_day_icu_util_pct = float(icu_results["next_day_icu_utilization_pct"])
-
-    # Staff risk (may fail gracefully if features are unavailable)
-    staff_risk_level = "UNKNOWN"
-    staff_results: Optional[Dict[str, Any]] = None
-    try:
-        staff_cfg = StaffRiskConfig(
-            base_dir=base_dir,
-            forecast_horizon_days=forecast_horizon,
-            test_horizon_days=test_horizon,
-            feature_config=feature_cfg,
-        )
-        staff_results = run_staff_risk_pipeline(staff_cfg)
-        staff_risk_level = str(staff_results["next_day_risk_level"])
-    except Exception as exc:  # pragma: no cover - defensive
-        staff_results = None
-        st.warning(
-            f"Staff risk pipeline failed; defaulting risk level to UNKNOWN. Reason: {exc}",
-            icon="⚠️",
-        )
-
-    # Context flags (weekend, temperature, respiratory trend, beds)
-    context_flags = infer_context_flags(master_df, feature_cfg)
-
-    # ICU capacity for next day: assume same as last observed day
-    icu_capacity_next_day = 0.0
-    if feature_cfg.icu_capacity_col in master_df.columns:
-        if feature_cfg.date_col in master_df.columns:
-            master_sorted = master_df.sort_values(feature_cfg.date_col)
-        else:
-            master_sorted = master_df
-        icu_capacity_next_day = float(
-            master_sorted[feature_cfg.icu_capacity_col].iloc[-1]
-        )
-
-    # Generate alert
-    alert_cfg = AlertEngineConfig()
-    alert_response = generate_alert(
-        predicted_admissions=next_day_admissions,
-        predicted_icu_demand=next_day_icu_beds,
-        icu_capacity=icu_capacity_next_day,
-        staff_risk_level=staff_risk_level,  # type: ignore[arg-type]
-        bed_availability=float(context_flags["bed_availability"]),
-        high_respiratory_trend=bool(context_flags["high_respiratory_trend"]),
-        config=alert_cfg,
-        include_timestamp=True,
-        is_weekend=context_flags["is_weekend"],
-        is_low_temperature=context_flags["is_low_temperature"],
-        reduced_staff_availability=(staff_risk_level == "HIGH"),
-    )
+    admissions_series = {}
+    if isinstance(details, dict):
+        admissions = details.get("admissions")
+        if isinstance(admissions, dict) and isinstance(admissions.get("series"), dict):
+            admissions_series = admissions.get("series")
 
     outputs: Dict[str, Any] = {
-        "master_df": master_df,
-        "feature_cfg": feature_cfg,
-        "adm_results": adm_results,
-        "icu_results": icu_results,
-        "staff_results": staff_results,
-        "next_day_admissions": next_day_admissions,
-        "next_day_icu_beds": next_day_icu_beds,
-        "next_day_icu_util_pct": next_day_icu_util_pct,
-        "staff_risk_level": staff_risk_level,
-        "context_flags": context_flags,
-        "alert_response": alert_response,
+        "admissions_series": admissions_series,
+        "next_day_admissions": float(result.get("predicted_admissions"))
+        if result.get("predicted_admissions") is not None
+        else float("nan"),
+        "next_day_icu_beds": float(result.get("predicted_icu_beds"))
+        if result.get("predicted_icu_beds") is not None
+        else 0.0,
+        "next_day_icu_util_pct": float(result.get("icu_utilization", 0.0)),
+        "staff_risk_level": str(details.get("staff", {}).get("risk_level", "UNKNOWN")),
+        "alert_response": decision_engine_alert
+        if isinstance(decision_engine_alert, dict)
+        else {"alert_level": str(result.get("alert_level", "GREEN")), "icu_utilization_pct": float(result.get("icu_utilization", 0.0)), "recommendations": [], "explanations": []},
     }
 
     return outputs
@@ -155,7 +82,7 @@ def run_pipelines(
 def render_dashboard(outputs: Dict[str, Any]) -> None:
     """Render Streamlit components from pipeline outputs."""
 
-    adm_results = outputs["adm_results"]
+    admissions_series = outputs.get("admissions_series") if isinstance(outputs, dict) else None
     icu_results = outputs["icu_results"]
     staff_results = outputs["staff_results"]
     next_day_admissions = outputs["next_day_admissions"]
@@ -190,22 +117,26 @@ def render_dashboard(outputs: Dict[str, Any]) -> None:
     st.markdown("---")
     st.markdown("### 7-Day Admission Forecast Window (Evaluation)")
 
-    y_test = adm_results["y_test"]
-    X_test = adm_results["X_test"]
-    model = adm_results["model"]
-    y_pred = model.predict(X_test)
+    labels = []
+    actual = []
+    predicted = []
+    if isinstance(admissions_series, dict):
+        labels = admissions_series.get("labels") if isinstance(admissions_series.get("labels"), list) else []
+        actual = admissions_series.get("actual") if isinstance(admissions_series.get("actual"), list) else []
+        predicted = admissions_series.get("predicted") if isinstance(admissions_series.get("predicted"), list) else []
 
-    # Build a simple dataframe for plotting (index treated as relative days)
-    forecast_df = pd.DataFrame(
-        {
-            "day": range(1, len(y_test) + 1),
-            "actual_admissions": y_test.values,
-            "predicted_admissions": y_pred,
-        }
-    )
-    forecast_df = forecast_df.set_index("day")
-
-    st.line_chart(forecast_df)
+    if labels and (actual or predicted):
+        n = min(len(labels), len(actual) if actual else len(labels), len(predicted) if predicted else len(labels))
+        plot_df = pd.DataFrame(
+            {
+                "day": labels[:n],
+                "actual_admissions": actual[:n] if actual else [None] * n,
+                "predicted_admissions": predicted[:n] if predicted else [None] * n,
+            }
+        ).set_index("day")
+        st.line_chart(plot_df)
+    else:
+        st.info("Admissions evaluation series unavailable for this run.")
 
     # ICU occupancy gauge (color-coded)
     st.markdown("---")

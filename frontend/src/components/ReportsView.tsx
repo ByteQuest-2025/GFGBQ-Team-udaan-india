@@ -78,6 +78,7 @@ const trendInsights = [
 export function ReportsView() {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedSeverity, setSelectedSeverity] = useState('all');
+  const [lastAction, setLastAction] = useState<string | null>(null);
 
   return (
     <div className="p-8 space-y-8">
@@ -138,11 +139,24 @@ export function ReportsView() {
           </div>
 
           <div className="flex items-end">
-            <button className="w-full px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm hover:bg-cyan-700 transition-colors">
+            <button
+              type="button"
+              onClick={() => {
+                const message = `Filters applied for ${selectedDepartment === 'all' ? 'all departments' : selectedDepartment} with ${selectedSeverity === 'all' ? 'all severities' : selectedSeverity} alerts.`;
+                setLastAction(message);
+                // eslint-disable-next-line no-alert
+                window.alert(message);
+              }}
+              className="w-full px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm hover:bg-cyan-700 transition-colors"
+            >
               Apply Filters
             </button>
           </div>
         </div>
+
+        {lastAction && (
+          <p className="mt-4 text-xs text-slate-500">{lastAction}</p>
+        )}
       </div>
 
       {/* Trend Insights */}
@@ -184,7 +198,16 @@ export function ReportsView() {
             <h2 className="text-slate-900 mb-1">Available Reports</h2>
             <p className="text-sm text-slate-500">Hospital audit-ready documentation</p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50 transition-colors">
+          <button
+            type="button"
+            onClick={() => {
+              const message = 'Exporting all available reports as a combined audit package (PDF & CSV).';
+              setLastAction(message);
+              // eslint-disable-next-line no-alert
+              window.alert(message);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50 transition-colors"
+          >
             <Download className="w-4 h-4" />
             Export All
           </button>
@@ -214,13 +237,40 @@ export function ReportsView() {
                 </div>
 
                 <div className="flex gap-2 ml-4">
-                  <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const message = `Preparing PDF export for "${report.title}"`;
+                      setLastAction(message);
+                      // eslint-disable-next-line no-alert
+                      window.alert(message);
+                    }}
+                    className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50 transition-colors"
+                  >
                     PDF
                   </button>
-                  <button className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const message = `Preparing CSV export for "${report.title}"`;
+                      setLastAction(message);
+                      // eslint-disable-next-line no-alert
+                      window.alert(message);
+                    }}
+                    className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50 transition-colors"
+                  >
                     CSV
                   </button>
-                  <button className="px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm hover:bg-cyan-700 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const message = `Opening detailed view for "${report.title}"`;
+                      setLastAction(message);
+                      // eslint-disable-next-line no-alert
+                      window.alert(message);
+                    }}
+                    className="px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm hover:bg-cyan-700 transition-colors"
+                  >
                     View
                   </button>
                 </div>

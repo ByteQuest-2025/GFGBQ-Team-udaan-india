@@ -1,5 +1,7 @@
 import { AlertTriangle, Info, AlertCircle, ChevronRight } from 'lucide-react';
 import { useDashboardData } from '../lib/dashboardData';
+import { triggerAction } from '../lib/api';
+import { toast } from 'sonner';
 
 interface Alert {
   id: string;
@@ -15,7 +17,7 @@ const fallbackAlerts: Alert[] = [
     id: '1',
     severity: 'warning',
     title: 'ICU Capacity Warning',
-    description: 'ICU occupancy projected to reach 94% within 12 hours',
+    description: 'Capacity risk simulated under forecast assumptions (validate against live census).',
     timestamp: '2 min ago',
     action: 'Review staffing',
   },
@@ -40,6 +42,43 @@ const fallbackAlerts: Alert[] = [
 export function AlertPanel() {
   const { data } = useDashboardData();
   const alerts: Alert[] = (data?.alerts?.length ? data.alerts : fallbackAlerts) as Alert[];
+
+  const handleAlertActionClick = async (alert: Alert) => {
+    const action = alert.action?.toLowerCase() ?? '';
+
+    if (action.includes('staff')) {
+      window.dispatchEvent(new CustomEvent('phrel:navigate', { detail: 'staff' }));
+    } else if (action.includes('icu')) {
+      window.dispatchEvent(new CustomEvent('phrel:navigate', { detail: 'icu' }));
+    } else {
+      window.dispatchEvent(new CustomEvent('phrel:navigate', { detail: 'dashboard' }));
+    }
+
+    await triggerAction({
+      action_type: 'alert_action',
+      source: 'alert_panel',
+      payload: {
+        alert_id: alert.id,
+        title: alert.title,
+        severity: alert.severity,
+        action: alert.action,
+      },
+    });
+
+    window.setTimeout(() => {
+      toast.success('Action logged and escalation initiated');
+    }, 10);
+  };
+
+  const handleViewAllAlerts = () => {
+    window.dispatchEvent(new CustomEvent('phrel:navigate', { detail: 'dashboard' }));
+    window.setTimeout(() => {
+      const el = document.querySelector('[data-section="alerts-panel"]');
+      if (el && 'scrollIntoView' in el) {
+        (el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 50);
+  };
   const getSeverityStyles = (severity: Alert['severity']) => {
     switch (severity) {
       case 'critical':
@@ -95,7 +134,11 @@ export function AlertPanel() {
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 mb-3">{alert.description}</p>
-                  <button className="flex items-center gap-1 text-xs text-cyan-700 hover:text-cyan-800 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => handleAlertActionClick(alert)}
+                    className="flex items-center gap-1 text-xs text-cyan-700 hover:text-cyan-800 transition-colors"
+                  >
                     <span>{alert.action}</span>
                     <ChevronRight className="w-3 h-3" />
                   </button>
@@ -106,7 +149,11 @@ export function AlertPanel() {
         })}
       </div>
 
-      <button className="w-full mt-4 py-2 text-sm text-cyan-700 hover:bg-slate-50 rounded-lg transition-colors">
+      <button
+        type="button"
+        onClick={handleViewAllAlerts}
+        className="w-full mt-4 py-2 text-sm text-cyan-700 hover:bg-slate-50 rounded-lg transition-colors"
+      >
         View all alerts
       </button>
     </div>

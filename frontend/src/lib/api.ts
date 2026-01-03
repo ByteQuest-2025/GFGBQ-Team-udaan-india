@@ -69,6 +69,17 @@ export type WhatIfResponse = {
   };
 };
 
+export type ActionRequest = {
+  action_type: string;
+  source: string;
+  payload?: Record<string, any>;
+};
+
+export type ActionResponse = {
+  id: number;
+  status: string;
+};
+
 const API_BASE: string = (import.meta as any).env?.VITE_API_BASE_URL ?? '';
 const DEFAULT_TIMEOUT_MS = 8000;
 const DEFAULT_RETRIES = 2;
@@ -188,4 +199,8 @@ export function getMonitoringLastRun(): Promise<any> {
 
 export function getMonitoringHistory(limit = 20): Promise<any> {
   return fetchJson<any>(`/api/monitoring/history?limit=${limit}`);
+}
+
+export function triggerAction(body: ActionRequest): Promise<ActionResponse> {
+  return postJson<ActionResponse>('/api/actions/log', body);
 }

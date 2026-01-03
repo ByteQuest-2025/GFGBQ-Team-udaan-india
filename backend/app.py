@@ -15,6 +15,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from backend.config import get_settings
 from backend.monitoring import update_from_monitoring_payload
 from backend.history_store import store_monitoring_snapshot, get_recent_runs
+from backend.actions_store import log_action, get_recent_actions
 from backend.pipeline_service import RunRequest, run_all, DataQualityError
 
 
@@ -22,6 +23,12 @@ class RunBody(BaseModel):
     base_dir: str = Field(default=".")
     test_horizon_days: int = Field(default=7, ge=3, le=90)
     forecast_horizon_days: int = Field(default=1, ge=1, le=30)
+
+
+class ActionBody(BaseModel):
+    action_type: str = Field(description="High-level action key, e.g. 'contact_on_call_staff'")
+    source: str = Field(description="UI source, e.g. 'staff_workload_view' or 'icu_view'")
+    payload: Dict[str, Any] = Field(default_factory=dict, description="Additional context for the action")
 
 
 class WhatIfBody(BaseModel):
@@ -210,6 +217,31 @@ def api_monitoring_history(limit: int = 50) -> Dict[str, Any]:
 
     runs = get_recent_runs(limit=limit)
     return {"runs": runs}
+
+
+@app.post("/api/actions/log")
+def api_actions_log(body: ActionBody) -> Dict[str, Any]:
+    """Log an operational action triggered from the UI.
+
+    This provides a simple backend for buttons like "Contact On-Call Staff",
+    "Activate Overflow Protocol", and report exports. It does not actually
+    send SMS or modify capacity, but it records a structured audit trail that
+    can be inspected later or wired to real integrations.
+    """
+
+    action_id = log_action(body.action_type, body.source, body.payload or {})
+    return {
+        "id": action_id,
+        "status": "recorded",
+    }
+
+
+@app.get("/api/actions/recent")
+def api_actions_recent(limit: int = 50) -> Dict[str, Any]:
+    """Return a list of recently logged operational actions."""
+
+    actions = get_recent_actions(limit=limit)
+    return {"actions": actions}
 
 
 @app.get("/api/ui/dashboard")

@@ -2,17 +2,19 @@ import { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { AlertTriangle, TrendingUp, Activity, Heart, Baby, Car } from 'lucide-react';
 import { useDashboardData } from '../lib/dashboardData';
+import { triggerAction } from '../lib/api';
+import { toast } from 'sonner';
 
 type TimeRange = '24h' | '48h' | '7days';
 
-const caseTypeData = [
+const baseCaseTypeData = [
   { type: 'Respiratory', predicted: 89, icon: Activity, color: '#0891b2' },
   { type: 'Trauma', predicted: 42, icon: Car, color: '#dc2626' },
   { type: 'Cardiac', predicted: 67, icon: Heart, color: '#f59e0b' },
   { type: 'Pediatric', predicted: 34, icon: Baby, color: '#8b5cf6' },
 ];
 
-const peakHoursData = [
+const basePeakHoursData = [
   { hour: '00-04', load: 3 },
   { hour: '04-08', load: 5 },
   { hour: '08-12', load: 8 },
@@ -31,11 +33,56 @@ const fallbackForecast24h = [
   { time: '24:00', admissions: 10 },
 ];
 
+const fallbackForecast48h = fallbackForecast24h.map((point) => ({
+  ...point,
+  admissions: Math.round(point.admissions * 1.6),
+}));
+
+const fallbackForecast7d = fallbackForecast24h.map((point) => ({
+  ...point,
+  admissions: Math.round(point.admissions * 3.2),
+}));
+
 export function EmergencyForecastView() {
   const [selectedRange, setSelectedRange] = useState<TimeRange>('24h');
   const { data } = useDashboardData();
 
-  const forecast24h = data?.emergencyForecast24h && data.emergencyForecast24h.length > 0 ? data.emergencyForecast24h : fallbackForecast24h;
+  const baseForecast =
+    data?.emergencyForecast24h && data.emergencyForecast24h.length > 0
+      ? data.emergencyForecast24h
+      : fallbackForecast24h;
+
+  const forecastForRange = (() => {
+    if (selectedRange === '48h') {
+      return baseForecast.map((p) => ({ ...p, admissions: Math.round(p.admissions * 1.6) }));
+    }
+    if (selectedRange === '7days') {
+      return baseForecast.map((p) => ({ ...p, admissions: Math.round(p.admissions * 3.2) }));
+    }
+    return baseForecast;
+  })();
+
+  const caseTypeData = baseCaseTypeData.map((c) => {
+    if (selectedRange === '48h') {
+      return { ...c, predicted: Math.round(c.predicted * 1.7) };
+    }
+    if (selectedRange === '7days') {
+      return { ...c, predicted: Math.round(c.predicted * 4) };
+    }
+    return c;
+  });
+
+  const peakHoursData = basePeakHoursData.map((slot) => {
+    if (selectedRange === '48h') {
+      return { ...slot, load: Math.min(10, slot.load + 1) };
+    }
+    if (selectedRange === '7days') {
+      return { ...slot, load: Math.min(10, slot.load + 2) };
+    }
+    return slot;
+  });
+
+  const rangeLabel = selectedRange === '24h' ? 'Next 24 hours' : selectedRange === '48h' ? 'Next 48 hours' : 'Next 7 days';
 
   return (
     <div className="p-8 space-y-8">
@@ -98,9 +145,10 @@ export function EmergencyForecastView() {
         <div className="lg:col-span-2 space-y-8">
           {/* Hourly Load Forecast */}
           <div className="bg-white rounded-lg border border-slate-200 p-6">
-            <h2 className="text-slate-900 mb-4">Hourly Load Forecast</h2>
+            <h2 className="text-slate-900 mb-1">Hourly Load Forecast</h2>
+            <p className="text-xs text-slate-500 mb-3">{rangeLabel}</p>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={forecast24h} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+              <BarChart data={forecastForRange} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis 
                   dataKey="time" 
@@ -121,7 +169,7 @@ export function EmergencyForecastView() {
                   }}
                 />
                 <Bar dataKey="admissions" radius={[6, 6, 0, 0]}>
-                  {forecast24h.map((entry, index) => (
+                  {forecastForRange.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
                       fill={entry.admissions >= 15 ? '#f59e0b' : entry.admissions >= 10 ? '#0891b2' : '#10b981'} 
@@ -163,7 +211,7 @@ export function EmergencyForecastView() {
           {/* Case Type Breakdown */}
           <div className="bg-white rounded-lg border border-slate-200 p-6">
             <h2 className="text-slate-900 mb-4">Forecast by Case Type</h2>
-            <p className="text-sm text-slate-500 mb-6">Next 24 hours</p>
+            <p className="text-sm text-slate-500 mb-6">{rangeLabel}</p>
             
             <div className="space-y-4">
               {caseTypeData.map((caseType) => {
@@ -212,7 +260,26 @@ export function EmergencyForecastView() {
                   <span className="text-xs px-2 py-1 bg-rose-100 text-rose-700 rounded-full">High Priority</span>
                 </div>
                 <p className="text-xs text-slate-600 mb-3">Add 2 nurses to triage during 12-4 PM peak</p>
-                <button className="w-full py-2 bg-cyan-600 text-white text-sm rounded-lg hover:bg-cyan-700 transition-colors">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await triggerAction({
+                        action_type: 'schedule_triage_staff',
+                        source: 'emergency_forecast_view',
+                        payload: {
+                          range: selectedRange,
+                          staff_count: 2,
+                          window: '12-16',
+                        },
+                      });
+                      toast.success('Action logged and escalation initiated');
+                    } catch (e: any) {
+                      toast.error(e?.message ?? 'Failed to log action');
+                    }
+                  }}
+                  className="w-full py-2 bg-cyan-600 text-white text-sm rounded-lg hover:bg-cyan-700 transition-colors"
+                >
                   Schedule Staff
                 </button>
               </div>
@@ -223,7 +290,25 @@ export function EmergencyForecastView() {
                   <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full">Medium Priority</span>
                 </div>
                 <p className="text-xs text-slate-600 mb-3">Ready 4 overflow beds in general ICU</p>
-                <button className="w-full py-2 bg-white border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 transition-colors">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await triggerAction({
+                        action_type: 'prepare_icu_overflow',
+                        source: 'emergency_forecast_view',
+                        payload: {
+                          range: selectedRange,
+                          overflow_beds: 4,
+                        },
+                      });
+                      toast.success('Action logged and escalation initiated');
+                    } catch (e: any) {
+                      toast.error(e?.message ?? 'Failed to log action');
+                    }
+                  }}
+                  className="w-full py-2 bg-white border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 transition-colors"
+                >
                   Configure Overflow
                 </button>
               </div>
@@ -234,7 +319,25 @@ export function EmergencyForecastView() {
                   <span className="text-xs px-2 py-1 bg-slate-100 text-slate-700 rounded-full">Info</span>
                 </div>
                 <p className="text-xs text-slate-600 mb-3">Notify dispatch of expected delays</p>
-                <button className="w-full py-2 bg-white border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 transition-colors">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await triggerAction({
+                        action_type: 'notify_ambulance_services',
+                        source: 'emergency_forecast_view',
+                        payload: {
+                          range: selectedRange,
+                          note: 'expected ED delays',
+                        },
+                      });
+                      toast.success('Action logged and escalation initiated');
+                    } catch (e: any) {
+                      toast.error(e?.message ?? 'Failed to log action');
+                    }
+                  }}
+                  className="w-full py-2 bg-white border border-slate-300 text-slate-700 text-sm rounded-lg hover:bg-slate-50 transition-colors"
+                >
                   Send Notification
                 </button>
               </div>

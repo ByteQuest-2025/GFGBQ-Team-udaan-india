@@ -1,5 +1,7 @@
 import { AlertTriangle, TrendingUp, Clock } from 'lucide-react';
 import { useDashboardData } from '../lib/dashboardData';
+import { triggerAction } from '../lib/api';
+import { toast } from 'sonner';
 
 interface BedStatus {
   department: string;
@@ -20,6 +22,8 @@ export function ICUView() {
   };
 
   const getOccupancyPercentage = (occupied: number, total: number) => {
+    if (!Number.isFinite(total) || total <= 0) return 0;
+    if (!Number.isFinite(occupied) || occupied < 0) return 0;
     return Math.round((occupied / total) * 100);
   };
 
@@ -68,6 +72,8 @@ export function ICUView() {
   const totalOccupied = bedData.reduce((sum, dept) => sum + dept.occupied, 0);
   const totalAvailable = bedData.reduce((sum, dept) => sum + dept.available, 0);
 
+  const monitoringMode = totalBeds > 0 && totalOccupied === 0;
+
   return (
     <div className="p-8 space-y-6">
       {/* Header Stats */}
@@ -94,23 +100,56 @@ export function ICUView() {
         </div>
       </div>
 
-      {/* Overflow Warning */}
-      <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-6">
-        <div className="flex items-start gap-3">
-          <div className="bg-amber-100 p-2 rounded-lg">
-            <AlertTriangle className="w-5 h-5 text-amber-600" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-slate-900 mb-1">Predicted Overflow Risk</h3>
-            <p className="text-sm text-slate-700 mb-3">
-              Cardiac and Pediatric ICU units projected to reach full capacity within 8 hours
-            </p>
-            <button className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700 transition-colors">
-              Activate Overflow Protocol
-            </button>
+      {/* Monitoring / Overflow Notice */}
+      {monitoringMode ? (
+        <div className="bg-slate-50 border-l-4 border-slate-400 rounded-lg p-6">
+          <div className="flex items-start gap-3">
+            <div className="bg-slate-200 p-2 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-slate-700" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-slate-900 mb-1">Monitoring mode</h3>
+              <p className="text-sm text-slate-700">
+                ICU occupancy currently reports as 0. Capacity risk is simulated under forecast assumptions.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-6">
+          <div className="flex items-start gap-3">
+            <div className="bg-amber-100 p-2 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-amber-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-slate-900 mb-1">Predicted capacity risk</h3>
+              <p className="text-sm text-slate-700 mb-3">
+                Capacity risk simulated under forecast assumptions. Validate against live census before escalating.
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await triggerAction({
+                      action_type: 'activate_overflow_protocol',
+                      source: 'icu_view',
+                      payload: {
+                        message: 'Convert 4 general beds to ICU and notify on-call teams',
+                      },
+                    });
+                    toast.success('Action logged and escalation initiated');
+                  } catch (e: any) {
+                    toast.error(e?.message ?? 'Failed to log action');
+                  }
+                }}
+                className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700 transition-colors"
+              >
+                Activate Overflow Protocol
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bed Availability Table */}
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">

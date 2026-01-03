@@ -1,6 +1,7 @@
 import { AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useDashboardData } from '../lib/dashboardData';
+import { triggerAction } from '../lib/api';
 
 interface ShiftData {
   shift: string;
@@ -144,7 +145,23 @@ export function StaffWorkloadView() {
             <p className="text-sm text-slate-700 mb-3">
               Night shift ICU is understaffed by 2 nurses. Load index at 9.1/10 (critical level).
             </p>
-            <button className="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm hover:bg-rose-700 transition-colors">
+            <button
+              type="button"
+              onClick={async () => {
+                await triggerAction({
+                  action_type: 'contact_on_call_staff',
+                  source: 'staff_workload_view',
+                  payload: {
+                    shift: 'Night (23:00-07:00)',
+                    department: 'ICU',
+                    reason: 'understaffed_critical_load',
+                  },
+                });
+                // eslint-disable-next-line no-alert
+                window.alert('On-call ICU staff contact request has been recorded by the backend.');
+              }}
+              className="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm hover:bg-rose-700 transition-colors"
+            >
               Contact On-Call Staff
             </button>
           </div>
@@ -217,7 +234,25 @@ export function StaffWorkloadView() {
                     </td>
                     <td className="py-4 px-6">
                       {gap > 0 && (
-                        <button className="text-sm text-cyan-700 hover:text-cyan-800 transition-colors">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await triggerAction({
+                              action_type: 'request_staff',
+                              source: 'staff_workload_view',
+                              payload: {
+                                shift: shift.shift,
+                                department: shift.department,
+                                gap,
+                              },
+                            });
+                            // eslint-disable-next-line no-alert
+                            window.alert(
+                              `Staffing request recorded in backend for ${shift.department} (${shift.shift}) to cover a gap of ${gap} staff.`,
+                            );
+                          }}
+                          className="text-sm text-cyan-700 hover:text-cyan-800 transition-colors"
+                        >
                           Request staff
                         </button>
                       )}

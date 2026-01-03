@@ -18,6 +18,10 @@ export function DashboardView() {
   const totalBeds = data?.kpis?.totalIcuBeds;
   const staffRisk = data?.kpis?.staffRiskLevel;
 
+  const navigateTo = (view: 'icu' | 'staff' | 'simulator') => {
+    window.dispatchEvent(new CustomEvent('phrel:navigate', { detail: view }));
+  };
+
   const formatTimeAgo = (date: Date) => {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -60,16 +64,19 @@ export function DashboardView() {
             icon={AlertTriangle} 
             label="Prepare ICU" 
             variant="danger"
+            onClick={() => navigateTo('icu')}
           />
           <QuickActionButton 
             icon={Phone} 
             label="Call On-Call Staff" 
             variant="secondary"
+            onClick={() => navigateTo('staff')}
           />
           <QuickActionButton 
             icon={FlaskConical} 
             label="Run What-If Scenario" 
             variant="primary"
+            onClick={() => navigateTo('simulator')}
           />
         </div>
       </div>
@@ -125,7 +132,9 @@ export function DashboardView() {
 
         {/* Right Column - Alerts & Explainability */}
         <div className="space-y-8">
-          <AlertPanel />
+          <div data-section="alerts-panel">
+            <AlertPanel />
+          </div>
           <ExplainabilityCard />
         </div>
       </div>

@@ -8,6 +8,7 @@ export function SettingsView() {
   const [staffLoadThreshold, setStaffLoadThreshold] = useState(8);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(true);
+  const [lastAction, setLastAction] = useState<string | null>(null);
 
   const departments = [
     { name: 'General ICU', beds: 48 },
@@ -84,7 +85,16 @@ export function SettingsView() {
                     <td className="py-3 px-4 text-sm text-slate-900">{dept.name}</td>
                     <td className="py-3 px-4 text-sm text-slate-700">{dept.beds}</td>
                     <td className="py-3 px-4">
-                      <button className="text-sm text-cyan-700 hover:text-cyan-800">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const message = `Edit capacity settings for ${dept.name} (currently ${dept.beds} beds).`;
+                          setLastAction(message);
+                          // eslint-disable-next-line no-alert
+                          window.alert(message);
+                        }}
+                        className="text-sm text-cyan-700 hover:text-cyan-800"
+                      >
                         Edit
                       </button>
                     </td>
@@ -235,7 +245,16 @@ export function SettingsView() {
             <Users className="w-5 h-5 text-slate-600" />
             <h2 className="text-slate-900">User & Role Management</h2>
           </div>
-          <button className="px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm hover:bg-cyan-700 transition-colors">
+          <button
+            type="button"
+            onClick={() => {
+              const message = 'Launching user creation flow (demo): add a new administrator or clinician account.';
+              setLastAction(message);
+              // eslint-disable-next-line no-alert
+              window.alert(message);
+            }}
+            className="px-4 py-2 bg-cyan-600 text-white rounded-lg text-sm hover:bg-cyan-700 transition-colors"
+          >
             Add User
           </button>
         </div>
@@ -263,8 +282,30 @@ export function SettingsView() {
                     </span>
                   </td>
                   <td className="py-3 px-4 space-x-3">
-                    <button className="text-sm text-cyan-700 hover:text-cyan-800">Edit</button>
-                    <button className="text-sm text-slate-600 hover:text-slate-700">Disable</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const message = `Edit permissions and role for ${user.name}.`;
+                        setLastAction(message);
+                        // eslint-disable-next-line no-alert
+                        window.alert(message);
+                      }}
+                      className="text-sm text-cyan-700 hover:text-cyan-800"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const message = `Disable user account for ${user.name} (demo only, no real deactivation).`;
+                        setLastAction(message);
+                        // eslint-disable-next-line no-alert
+                        window.alert(message);
+                      }}
+                      className="text-sm text-slate-600 hover:text-slate-700"
+                    >
+                      Disable
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -302,21 +343,54 @@ export function SettingsView() {
           <div className="p-4 bg-slate-50 rounded-lg">
             <h3 className="text-sm text-slate-900 mb-2">Access Logs</h3>
             <p className="text-xs text-slate-600">Retention: 90 days</p>
-            <button className="text-xs text-cyan-700 mt-1 hover:text-cyan-800">View logs</button>
+            <button
+              type="button"
+              onClick={() => {
+                const message = 'Opening access logs viewer (demo): review sign-ins and configuration changes.';
+                setLastAction(message);
+                // eslint-disable-next-line no-alert
+                window.alert(message);
+              }}
+              className="text-xs text-cyan-700 mt-1 hover:text-cyan-800"
+            >
+              View logs
+            </button>
           </div>
         </div>
       </div>
 
       {/* Save Button */}
       <div className="flex justify-end gap-3">
-        <button className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+        <button
+          type="button"
+          onClick={() => {
+            const message = 'All unsaved changes were discarded (demo).';
+            setLastAction(message);
+            // eslint-disable-next-line no-alert
+            window.alert(message);
+          }}
+          className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+        >
           Cancel
         </button>
-        <button className="flex items-center gap-2 px-6 py-2.5 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors">
+        <button
+          type="button"
+          onClick={() => {
+            const message = `Settings saved: total beds ${totalBeds}, ICU beds ${icuBeds}, ICU alert at ${icuThreshold}%, staff load alert at ${staffLoadThreshold}/10. Email: ${emailNotifications ? 'on' : 'off'}, SMS: ${smsNotifications ? 'on' : 'off'}.`;
+            setLastAction(message);
+            // eslint-disable-next-line no-alert
+            window.alert(message);
+          }}
+          className="flex items-center gap-2 px-6 py-2.5 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+        >
           <Save className="w-4 h-4" />
           Save Changes
         </button>
       </div>
+
+      {lastAction && (
+        <p className="mt-4 text-xs text-slate-500 text-right">{lastAction}</p>
+      )}
     </div>
   );
 }

@@ -47,6 +47,11 @@ logs/
 coverage.xml
 htmlcov/
 
+# Local runtime databases
+*.db
+*.sqlite
+*.sqlite3
+
 # Additional build artifacts
 dist/
 build/

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -20,6 +21,13 @@ class RunRequest:
     base_dir: Path
     test_horizon_days: int = 7
     forecast_horizon_days: int = 1
+
+
+PIPELINE_MODEL_VERSION = "0.1.0"
+
+
+class DataQualityError(RuntimeError):
+    """Raised when input data fails quality checks for reliable forecasts."""
 
 
 def _to_builtin(obj: Any) -> Any:
@@ -59,13 +67,110 @@ def _to_builtin(obj: Any) -> Any:
     return str(obj)
 
 
+def _validate_master_schema(master_df: pd.DataFrame, feature_cfg) -> None:
+    """Validate that the master dataframe has required columns and types.
+
+    This is a defensive check to fail fast when upstream data contracts
+    are broken, rather than producing confusing model errors downstream.
+    """
+
+    required_cols = [
+        feature_cfg.date_col,
+        feature_cfg.admissions_col,
+        feature_cfg.icu_occupied_col,
+        feature_cfg.icu_capacity_col,
+    ]
+    missing = [c for c in required_cols if c not in master_df.columns]
+    if missing:
+        raise ValueError(f"Master dataframe is missing required columns: {missing}")
+
+    # Basic numeric checks for key quantitative columns
+    numeric_cols = [
+        feature_cfg.admissions_col,
+        feature_cfg.icu_occupied_col,
+        feature_cfg.icu_capacity_col,
+    ]
+    non_numeric: List[str] = []
+    for col in numeric_cols:
+        try:
+            pd.to_numeric(master_df[col], errors="raise")
+        except Exception:
+            non_numeric.append(col)
+    if non_numeric:
+        raise ValueError(
+            "Master dataframe has non-numeric values in required numeric columns: "
+            f"{non_numeric}. Please check upstream CSV schemas."
+        )
+
+
+def _check_data_quality(master_df: pd.DataFrame, feature_cfg) -> None:
+    """Apply simple data quality checks before running forecasting.
+
+    Currently this checks for excessive missing data in key quantitative
+    columns. In a real deployment this can be extended with distribution
+    checks and range validation.
+    """
+
+    key_cols = [
+        feature_cfg.admissions_col,
+        feature_cfg.icu_occupied_col,
+        feature_cfg.icu_capacity_col,
+    ]
+
+    issues: List[str] = []
+    hard_fail_reasons: List[str] = []
+
+    # Strict-but-safe policy:
+    # - Log issues when more than 30% of values are missing.
+    # - Only hard-fail when more than 90% are missing or the
+    #   series is effectively empty (no non-zero observations).
+    warn_threshold = 0.3
+    fail_threshold = 0.9
+
+    for col in key_cols:
+        if col not in master_df.columns:
+            continue
+        s = master_df[col]
+        frac_missing = float(s.isna().mean())
+        non_zero = int((s.fillna(0) != 0).sum())
+
+        if frac_missing > warn_threshold:
+            issues.append(f"{col}: {frac_missing:.0%} missing (non_zero={non_zero})")
+
+        if frac_missing >= fail_threshold or non_zero == 0:
+            hard_fail_reasons.append(f"{col}: {frac_missing:.0%} missing, non_zero={non_zero}")
+
+    if hard_fail_reasons:
+        joined = "; ".join(hard_fail_reasons)
+        raise DataQualityError(
+            "Data quality check failed for critical inputs; "
+            f"series is almost entirely missing or empty. Details: {joined}"
+        )
+
+    # For now we only surface warnings via logs/monitoring rather than
+    # blocking forecasts on moderately sparse data.
+
+
 def run_all(req: RunRequest) -> Dict[str, Any]:
+    """Run the full analytics pipeline and return a JSON-serializable dict.
+
+    This function also attaches a lightweight "monitoring" section with
+    timing and model-quality metrics so that external systems can track
+    basic model health over time.
+    """
+
     base_dir = req.base_dir
     test_horizon = int(req.test_horizon_days)
     forecast_horizon = int(req.forecast_horizon_days)
 
+    run_started_at = datetime.utcnow().isoformat() + "Z"
+
     master_df, dataset_summaries = example_build_master_from_default_files(base_dir)
     feature_cfg = build_shared_feature_config()
+
+    # Fail fast if the master dataframe does not meet expectations.
+    _validate_master_schema(master_df, feature_cfg)
+    _check_data_quality(master_df, feature_cfg)
 
     # Admissions
     adm_cfg = ForecastingConfig(
@@ -201,7 +306,16 @@ def run_all(req: RunRequest) -> Dict[str, Any]:
             "test_horizon_days": test_horizon,
             "forecast_horizon_days": forecast_horizon,
         },
-        "datasets": _to_builtin(dataset_summaries),
+        "data_manifest": {
+            "base_dir": str(base_dir),
+            "num_rows": int(master_df.shape[0]),
+            "num_columns": int(master_df.shape[1]),
+            "date_range": {
+                "start": _to_builtin(master_df[feature_cfg.date_col].min()),
+                "end": _to_builtin(master_df[feature_cfg.date_col].max()),
+            },
+            "datasets": _to_builtin(dataset_summaries),
+        },
         "kpis": {
             "predicted_admissions_next_day": predicted_admissions,
             "predicted_icu_beds_next_day": predicted_icu_demand,
@@ -225,6 +339,27 @@ def run_all(req: RunRequest) -> Dict[str, Any]:
         },
         "alert": _to_builtin(alert),
         "context": _to_builtin(context_flags),
+        "model_metadata": {
+            "version": PIPELINE_MODEL_VERSION,
+            "components": {
+                "admissions": {
+                    "version": PIPELINE_MODEL_VERSION,
+                    "type": str(type(adm_model).__name__),
+                },
+                "icu": {
+                    "version": PIPELINE_MODEL_VERSION,
+                    "type": str(type(icu_results.get("model")).__name__)
+                    if "model" in icu_results
+                    else None,
+                },
+                "staff": {
+                    "version": PIPELINE_MODEL_VERSION,
+                    "type": str(type(staff_results.get("model")).__name__)
+                    if isinstance(staff_results, dict) and "model" in staff_results
+                    else None,
+                },
+            },
+        },
     }
 
     # UI-friendly payload for the React dashboard
@@ -299,10 +434,24 @@ def run_all(req: RunRequest) -> Dict[str, Any]:
             continue
         factors_ui.append({"id": str(k + 1), "label": line.strip(), "impact": "high"})
 
+    # ICU occupancy percentage for UI: prefer value from alert/metrics,
+    # but fall back to a safe computation that never returns NaN.
+    raw_icu_util = alert.get("icu_utilization_pct", predicted_icu_util_pct)
+    try:
+        icu_occupancy_pct_ui = float(raw_icu_util)
+    except Exception:
+        icu_occupancy_pct_ui = float("nan")
+
+    if not np.isfinite(icu_occupancy_pct_ui):
+        if np.isfinite(current_icu_occupied) and icu_capacity_next_day > 0:
+            icu_occupancy_pct_ui = float(100.0 * current_icu_occupied / icu_capacity_next_day)
+        else:
+            icu_occupancy_pct_ui = 0.0
+
     resp["ui"] = {
         "kpis": {
             "predictedAdmissions": predicted_admissions,
-            "icuOccupancyPct": float(alert.get("icu_utilization_pct", predicted_icu_util_pct)),
+            "icuOccupancyPct": float(icu_occupancy_pct_ui),
             "availableIcuBeds": float(
                 max(0.0, icu_capacity_next_day - current_icu_occupied)
                 if np.isfinite(current_icu_occupied)
@@ -412,5 +561,26 @@ def run_all(req: RunRequest) -> Dict[str, Any]:
         for t, p in zip(times, hourly_profile):
             emergency_24h.append({"time": t, "admissions": float(max(0.0, predicted_admissions * p))})
         ui["emergencyForecast24h"] = emergency_24h
+
+    # ---------------------- Monitoring payload ----------------------
+    run_completed_at = datetime.utcnow().isoformat() + "Z"
+
+    admissions_metrics = _to_builtin(adm_results.get("metrics", {}))
+    icu_metrics = _to_builtin(icu_results.get("metrics", {}))
+    staff_metrics: Optional[Dict[str, Any]] = None
+    if isinstance(staff_results, dict):
+        staff_metrics = _to_builtin(staff_results.get("metrics", {}))  # type: ignore[assignment]
+
+    resp["monitoring"] = {
+        "run_started_at": run_started_at,
+        "run_completed_at": run_completed_at,
+        "test_horizon_days": test_horizon,
+        "forecast_horizon_days": forecast_horizon,
+        "admissions_metrics": admissions_metrics,
+        "icu_metrics": icu_metrics,
+        "staff_metrics": staff_metrics,
+        "alert_level": alert_level,
+        "staff_risk_level": staff_risk_level,
+    }
 
     return resp

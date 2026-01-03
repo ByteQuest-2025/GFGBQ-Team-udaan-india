@@ -9,9 +9,18 @@ import { StaffWorkloadView } from './components/StaffWorkloadView';
 import { WhatIfSimulator } from './components/WhatIfSimulator';
 import { ReportsView } from './components/ReportsView';
 import { SettingsView } from './components/SettingsView';
+import { SystemHealthView } from './components/SystemHealthView';
 import { DashboardDataProvider } from './lib/dashboardData';
 
-export type ViewType = 'dashboard' | 'emergency' | 'icu' | 'staff' | 'simulator' | 'reports' | 'settings';
+export type ViewType =
+  | 'dashboard'
+  | 'emergency'
+  | 'icu'
+  | 'staff'
+  | 'simulator'
+  | 'reports'
+  | 'settings'
+  | 'system-health';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
@@ -32,6 +41,8 @@ export default function App() {
         return <ReportsView />;
       case 'settings':
         return <SettingsView />;
+      case 'system-health':
+        return <SystemHealthView />;
       default:
         return <DashboardView />;
     }

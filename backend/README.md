@@ -2,23 +2,44 @@
 
 This backend exposes JSON endpoints backed by the existing hospital analytics pipeline in the repo.
 
-## Run
+## Run (development)
 
-From the repo root:
+From the repo root with the project virtualenv activated:
 
-- Start the API server:
+- Start the API server (auto-reload, dev):
 
-  `C:/Users/dasne/Desktop/udaanindia/.venv/Scripts/python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000`
+  `python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload`
 
 - Open API docs:
 
   `http://127.0.0.1:8000/docs`
 
+## Run (production)
+
+In production use a process manager and a production-ready ASGI server,
+for example:
+
+```bash
+uvicorn backend.app:app \
+  --host 0.0.0.0 --port 8000 \
+  --workers 4
+```
+
+Recommended environment variables:
+
+- `APP_ENV` – e.g. `development`, `staging`, `production`.
+- `APP_DEBUG` – `true` / `false`.
+- `CORS_ORIGINS` – comma-separated list of allowed frontend origins.
+
 ## Endpoints
 
 - `GET /health`
+- `GET /health/ready`
 - `POST /api/run` (run pipeline with params)
 - `GET /api/dashboard` (cached last result or runs defaults)
+- `GET /api/monitoring/last-run` (latest monitoring metrics)
+- `GET /api/monitoring/history?limit=N` (recent monitoring runs from SQLite)
+- `GET /metrics` (Prometheus scrape endpoint)
 - `GET /api/alert`
 - `GET /api/admissions`
 - `GET /api/icu`

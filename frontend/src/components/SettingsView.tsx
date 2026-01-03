@@ -45,9 +45,10 @@ export function SettingsView() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div>
-            <label className="block text-sm text-slate-700 mb-2">Total Hospital Beds</label>
+            <label htmlFor="totalBeds" className="block text-sm text-slate-700 mb-2">Total Hospital Beds</label>
             <input
               type="number"
+              id="totalBeds"
               value={totalBeds}
               onChange={(e) => setTotalBeds(Number(e.target.value))}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -55,9 +56,10 @@ export function SettingsView() {
           </div>
 
           <div>
-            <label className="block text-sm text-slate-700 mb-2">Total ICU Beds</label>
+            <label htmlFor="icuBeds" className="block text-sm text-slate-700 mb-2">Total ICU Beds</label>
             <input
               type="number"
+              id="icuBeds"
               value={icuBeds}
               onChange={(e) => setICUBeds(Number(e.target.value))}
               className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -104,13 +106,14 @@ export function SettingsView() {
         <div className="space-y-6">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-slate-700">ICU Occupancy Alert (%)</label>
+              <label htmlFor="icuThreshold" className="text-sm text-slate-700">ICU Occupancy Alert (%)</label>
               <span className="text-sm text-slate-900">{icuThreshold}%</span>
             </div>
             <input
               type="range"
               min="70"
               max="100"
+              id="icuThreshold"
               value={icuThreshold}
               onChange={(e) => setICUThreshold(Number(e.target.value))}
               className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-cyan-600"
@@ -124,7 +127,7 @@ export function SettingsView() {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-slate-700">Staff Load Index Alert</label>
+              <label htmlFor="staffLoadThreshold" className="text-sm text-slate-700">Staff Load Index Alert</label>
               <span className="text-sm text-slate-900">{staffLoadThreshold}/10</span>
             </div>
             <input
@@ -132,6 +135,7 @@ export function SettingsView() {
               min="5"
               max="10"
               step="0.5"
+              id="staffLoadThreshold"
               value={staffLoadThreshold}
               onChange={(e) => setStaffLoadThreshold(Number(e.target.value))}
               className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-cyan-600"
@@ -144,8 +148,11 @@ export function SettingsView() {
           </div>
 
           <div>
-            <label className="block text-sm text-slate-700 mb-2">Surge Sensitivity</label>
-            <select className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+            <label htmlFor="surgeSensitivity" className="block text-sm text-slate-700 mb-2">Surge Sensitivity</label>
+            <select
+              id="surgeSensitivity"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            >
               <option value="low">Low - Fewer alerts</option>
               <option value="medium" selected>Medium - Balanced</option>
               <option value="high">High - More sensitive</option>
@@ -169,7 +176,9 @@ export function SettingsView() {
               <p className="text-xs text-slate-600">Receive alerts via email</p>
             </div>
             <button
+              type="button"
               onClick={() => setEmailNotifications(!emailNotifications)}
+              aria-label="Toggle email notifications"
               className={`relative w-12 h-6 rounded-full transition-colors ${
                 emailNotifications ? 'bg-cyan-600' : 'bg-slate-300'
               }`}
@@ -188,7 +197,9 @@ export function SettingsView() {
               <p className="text-xs text-slate-600">Receive critical alerts via SMS</p>
             </div>
             <button
+              type="button"
               onClick={() => setSmsNotifications(!smsNotifications)}
+              aria-label="Toggle SMS notifications"
               className={`relative w-12 h-6 rounded-full transition-colors ${
                 smsNotifications ? 'bg-cyan-600' : 'bg-slate-300'
               }`}
@@ -206,7 +217,11 @@ export function SettingsView() {
               <h3 className="text-sm text-slate-900 mb-1">In-App Alerts</h3>
               <p className="text-xs text-slate-600">Show notifications in dashboard</p>
             </div>
-            <button className="relative w-12 h-6 rounded-full transition-colors bg-cyan-600">
+            <button
+              type="button"
+              aria-label="Toggle in-app alerts"
+              className="relative w-12 h-6 rounded-full transition-colors bg-cyan-600"
+            >
               <div className="absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform translate-x-6" />
             </button>
           </div>

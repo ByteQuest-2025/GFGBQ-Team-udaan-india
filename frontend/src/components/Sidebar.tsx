@@ -1,4 +1,4 @@
-import { LayoutDashboard, AlertTriangle, Bed, Users, FlaskConical, FileText, Settings } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, Bed, Users, FlaskConical, FileText, Settings, Activity } from 'lucide-react';
 import { ViewType } from '../App';
 
 interface SidebarProps {
@@ -17,6 +17,7 @@ const navItems: NavItem[] = [
   { id: 'emergency', label: 'Emergency Forecast', icon: AlertTriangle },
   { id: 'icu', label: 'ICU & Beds', icon: Bed },
   { id: 'staff', label: 'Staff Workload', icon: Users },
+   { id: 'system-health', label: 'System Health', icon: Activity },
   { id: 'simulator', label: 'What-If Simulator', icon: FlaskConical },
   { id: 'reports', label: 'Reports', icon: FileText },
   { id: 'settings', label: 'Settings', icon: Settings },

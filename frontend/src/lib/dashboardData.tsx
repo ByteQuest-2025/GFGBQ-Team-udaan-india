@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { UiDashboardResponse } from './api';
-import { getUiDashboard } from './api';
+import { ApiError, getUiDashboard } from './api';
 
 type DashboardDataState = {
   data: UiDashboardResponse | null;
@@ -24,7 +24,13 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         setData(d);
       })
       .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : String(e));
+        if (e instanceof ApiError && e.code === 'data_quality_error') {
+          setError('Forecast paused due to insufficient data quality in recent inputs.');
+        } else if (e instanceof Error) {
+          setError(e.message);
+        } else {
+          setError('Unexpected error while loading dashboard data');
+        }
       })
       .finally(() => setLoading(false));
   }, []);

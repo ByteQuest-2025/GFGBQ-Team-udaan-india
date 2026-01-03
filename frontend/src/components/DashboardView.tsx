@@ -8,7 +8,7 @@ import { TrendingUp, TrendingDown, Activity, Bed, Users, Gauge, AlertTriangle, P
 import { useDashboardData } from '../lib/dashboardData';
 
 export function DashboardView() {
-  const { data } = useDashboardData();
+  const { data, loading, error, refresh } = useDashboardData();
   const lastModelUpdate = new Date();
   lastModelUpdate.setMinutes(lastModelUpdate.getMinutes() - 8);
 
@@ -30,6 +30,23 @@ export function DashboardView() {
 
   return (
     <div className="p-8 space-y-8">
+      {loading && (
+        <div className="rounded-md bg-slate-100 border border-slate-200 px-4 py-3 text-sm text-slate-700">
+          Loading latest hospital metrics...
+        </div>
+      )}
+      {error && !loading && (
+        <div className="rounded-md bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-800 flex items-center justify-between">
+          <span>Unable to load dashboard data: {error}</span>
+          <button
+            type="button"
+            onClick={refresh}
+            className="ml-4 inline-flex items-center rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {/* Quick Actions Bar */}
       <div className="flex items-center justify-between">
         <div>

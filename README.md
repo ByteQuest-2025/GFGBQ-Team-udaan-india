@@ -187,7 +187,7 @@ Team Udaan India (ByteQuest 2025)
 
 GitHub: https://github.com/ByteQuest-2025/GFGBQ-Team-udaan-india
 
-⭐ If you like this project, don’t forget to star the repository!
+⭐ If you like this project, Make sure to star this repository!
 
 
 

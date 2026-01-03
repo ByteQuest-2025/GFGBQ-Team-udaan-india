@@ -4,15 +4,31 @@ import { AlertTriangle, TrendingUp, Activity, Heart, Baby, Car } from 'lucide-re
 import { useDashboardData } from '../lib/dashboardData';
 import { triggerAction } from '../lib/api';
 import { toast } from 'sonner';
+import { percentWidthClass } from '../lib/percentWidthClass';
 
 type TimeRange = '24h' | '48h' | '7days';
 
 const baseCaseTypeData = [
-  { type: 'Respiratory', predicted: 89, icon: Activity, color: '#0891b2' },
-  { type: 'Trauma', predicted: 42, icon: Car, color: '#dc2626' },
-  { type: 'Cardiac', predicted: 67, icon: Heart, color: '#f59e0b' },
-  { type: 'Pediatric', predicted: 34, icon: Baby, color: '#8b5cf6' },
+  { type: 'Respiratory', predicted: 89, icon: Activity },
+  { type: 'Trauma', predicted: 42, icon: Car },
+  { type: 'Cardiac', predicted: 67, icon: Heart },
+  { type: 'Pediatric', predicted: 34, icon: Baby },
 ];
+
+function getCaseTypeAccent(type: string) {
+  switch (type) {
+    case 'Respiratory':
+      return { bg: 'bg-cyan-600/10', icon: 'text-cyan-700' };
+    case 'Trauma':
+      return { bg: 'bg-rose-600/10', icon: 'text-rose-700' };
+    case 'Cardiac':
+      return { bg: 'bg-amber-500/10', icon: 'text-amber-700' };
+    case 'Pediatric':
+      return { bg: 'bg-violet-500/10', icon: 'text-violet-700' };
+    default:
+      return { bg: 'bg-slate-200', icon: 'text-slate-700' };
+  }
+}
 
 const basePeakHoursData = [
   { hour: '00-04', load: 3 },
@@ -193,8 +209,7 @@ export function EmergencyForecastView() {
                     <span className="text-sm text-slate-700 w-20">{slot.hour}</span>
                     <div className="flex-1 bg-slate-100 rounded-full h-8 overflow-hidden">
                       <div
-                        className={`h-full ${colorClass} transition-all flex items-center justify-end pr-3`}
-                        style={{ width: `${percentage}%` }}
+                        className={`h-full ${colorClass} transition-all flex items-center justify-end pr-3 ${percentWidthClass(percentage)}`}
                       >
                         <span className="text-xs text-white">{slot.load}/10</span>
                       </div>
@@ -216,14 +231,12 @@ export function EmergencyForecastView() {
             <div className="space-y-4">
               {caseTypeData.map((caseType) => {
                 const Icon = caseType.icon;
+                const accent = getCaseTypeAccent(caseType.type);
                 return (
                   <div key={caseType.type} className="p-4 border border-slate-200 rounded-lg hover:shadow-sm transition-shadow">
                     <div className="flex items-center gap-3 mb-3">
-                      <div 
-                        className="p-2 rounded-lg"
-                        style={{ backgroundColor: `${caseType.color}20` }}
-                      >
-                        <Icon className="w-4 h-4" style={{ color: caseType.color }} />
+                      <div className={`p-2 rounded-lg ${accent.bg}`}>
+                        <Icon className={`w-4 h-4 ${accent.icon}`} />
                       </div>
                       <div className="flex-1">
                         <h3 className="text-sm text-slate-900">{caseType.type}</h3>

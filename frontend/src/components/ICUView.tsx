@@ -2,6 +2,7 @@ import { AlertTriangle, TrendingUp, Clock } from 'lucide-react';
 import { useDashboardData } from '../lib/dashboardData';
 import { triggerAction } from '../lib/api';
 import { toast } from 'sonner';
+import { percentWidthClass } from '../lib/percentWidthClass';
 
 interface BedStatus {
   department: string;
@@ -209,8 +210,7 @@ export function ICUView() {
                         <div className="flex items-center gap-3">
                           <div className="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden">
                             <div
-                              className={`h-full ${getOccupancyColor(occupancyPercentage)} transition-all`}
-                              style={{ width: `${occupancyPercentage}%` }}
+                              className={`h-full ${getOccupancyColor(occupancyPercentage)} transition-all ${percentWidthClass(occupancyPercentage)}`}
                             />
                           </div>
                           <span className="text-sm text-slate-700 w-12 text-right">

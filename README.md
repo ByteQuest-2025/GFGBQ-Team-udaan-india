@@ -4,11 +4,14 @@ Problem Statement : Predictive Hospital Resource & Emergency Load Intelligence S
 
 HELLIOS • UDAAN INDIA
 
+Demo Video Link:
+https://drive.google.com/file/d/1y6iwA-vEDDDDcu5HTwic4_TD1I-HfdUT/view?usp=drivesdk
+
 Project Presentation: https://docs.google.com/presentation/d/1mUZi1sy3XA6uUBTHOKY5RsZs0VnvQYQW/edit?usp=drive_link&ouid=107715756340849135526&rtpof=true&sd=true
 
 A full‑stack dashboard that runs a hospital analytics pipeline and presents ICU capacity risk, ED admissions forecasting, staffing signals, and explainability in a clean, demo‑ready UI.
 
-Status: Active development • Made with React • License: MIT
+Status: Active development • Made with React 
 
 📌 Table of Contents
 
@@ -22,7 +25,6 @@ Status: Active development • Made with React • License: MIT
 - Deployment
 - Future Enhancements
 - Contributing
-- License
 - Author
 
 🔍 Overview

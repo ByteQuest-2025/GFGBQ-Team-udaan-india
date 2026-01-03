@@ -19,3 +19,36 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Secrets and environment
+.env
+.env.*
+*.env
+*.local
+*.secret
+secrets.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.jks
+id_rsa*
+
+# Logs and coverage
+*.log
+logs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Additional build artifacts
+dist/
+build/
+frontend/.turbo/
+frontend/.next/

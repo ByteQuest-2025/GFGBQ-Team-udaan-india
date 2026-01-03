@@ -1,0 +1,21 @@
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Python outputs
+alert.json
+*.png
+
+# Frontend
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
